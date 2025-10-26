@@ -1,8 +1,5 @@
 package policy.s3
 
-# deny is a set of strings with human-readable messages
-deny is set of string
-
 # Bucket must not be public
 deny contains msg if {
   input.resource.type == "s3"

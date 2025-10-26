@@ -1,8 +1,5 @@
 package policy.tags
 
-# deny is a set of strings with human-readable messages
-deny is set of string
-
 # Missing CostCenter tag
 deny contains msg if {
   not input.resource.tags.CostCenter
