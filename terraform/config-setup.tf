@@ -38,6 +38,35 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "config_logs" {
   }
 }
 
+# Bucket policy that allows AWS Config to write objects with the required ACL
+resource "aws_s3_bucket_policy" "config_logs" {
+  bucket = aws_s3_bucket.config_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "AWSConfigBucketPermissionsCheck"
+        Effect    = "Allow"
+        Principal = { Service = "config.amazonaws.com" }
+        Action    = "s3:GetBucketAcl"
+        Resource  = "arn:${data.aws_partition.current.partition}:s3:::${aws_s3_bucket.config_logs.bucket}"
+      },
+      {
+        Sid       = "AWSConfigBucketDelivery"
+        Effect    = "Allow"
+        Principal = { Service = "config.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "arn:${data.aws_partition.current.partition}:s3:::${aws_s3_bucket.config_logs.bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/Config/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
+      }
+    ]
+  })
+}
+
 # Create the service-linked role for AWS Config
 resource "aws_iam_service_linked_role" "config" {
   aws_service_name = "config.amazonaws.com"
@@ -47,29 +76,23 @@ resource "aws_iam_service_linked_role" "config" {
 resource "aws_config_configuration_recorder" "this" {
   name     = "default"
   role_arn = aws_iam_service_linked_role.config.arn
-
   recording_group {
     all_supported                 = true
     include_global_resource_types = true
   }
 }
 
-# Create the Delivery Channel that points to the S3 bucket
+# Create the Delivery Channel with the required key prefix
 resource "aws_config_delivery_channel" "this" {
   name           = "default"
   s3_bucket_name = aws_s3_bucket.config_logs.bucket
-
-  depends_on = [
-    aws_config_configuration_recorder.this
-  ]
+  s3_key_prefix  = "AWSLogs/${data.aws_caller_identity.current.account_id}/Config"
+  depends_on     = [aws_s3_bucket_policy.config_logs, aws_config_configuration_recorder.this]
 }
 
 # Start the Configuration Recorder
 resource "aws_config_configuration_recorder_status" "this" {
   name       = aws_config_configuration_recorder.this.name
   is_enabled = true
-
-  depends_on = [
-    aws_config_delivery_channel.this
-  ]
+  depends_on = [aws_config_delivery_channel.this]
 }
