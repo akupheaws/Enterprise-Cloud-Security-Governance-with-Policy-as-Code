@@ -1,17 +1,15 @@
 package policy.s3
 
-# Deny public S3 bucket access
-deny[msg] if {
+# Deny public S3 buckets
+deny[msg] {
   input.resource.type == "s3"
   input.resource.public == true
-} then {
-  msg := "Bucket is public; must be private"
+  msg := "Bucket must not be public"
 }
 
-# Deny if versioning is not enabled
-deny[msg] if {
+# Deny buckets without versioning
+deny[msg] {
   input.resource.type == "s3"
   input.resource.versioning != "Enabled"
-} then {
-  msg := "Bucket missing versioning"
+  msg := "Bucket must have versioning enabled"
 }

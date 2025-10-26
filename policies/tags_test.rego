@@ -1,6 +1,11 @@
 package policy.tags
 
-test_tags_missing {
-  result := deny with input as {"resource":{"name":"bad","tags":{"CostCenter":""}}}
-  count(result) > 0
+test_missing_costcenter_is_denied {
+  result := deny with input as {"resource":{"name":"app","tags":{}}}
+  count(result) == 1
+}
+
+test_empty_costcenter_is_denied {
+  result := deny with input as {"resource":{"name":"db","tags":{"CostCenter":""}}}
+  count(result) == 1
 }
