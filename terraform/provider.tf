@@ -34,13 +34,6 @@ provider "aws" {
   region = var.region
 }
 
-# Deployment region variable
-variable "region" {
-  type        = string
-  description = "AWS deployment region"
-  default     = "us-east-1"
-}
-
 # Governance-required tag for FinOps + ownership tracking
 locals {
   cost_center = "SecurityOps"
