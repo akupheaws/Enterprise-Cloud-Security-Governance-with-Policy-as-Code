@@ -1,9 +1,11 @@
 terraform {
   #Remote state backend for consistency
   backend "s3" {
-    bucket = "YOUR-STATE-BUCKET"
+    bucket = "compliance-akuphe"
     key    = "gov-policy/terraform.tfstate"
     region = "us-east-1"
+    encrypt = true
+    use_lockfile = true
   }
 
   required_version = ">= 1.4.0"
