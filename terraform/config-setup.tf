@@ -38,25 +38,25 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "config_logs" {
   }
 }
 
-# Bucket policy that allows AWS Config to write objects with the required ACL
+# Bucket policy that allows AWS Config to write with the required ACL
 resource "aws_s3_bucket_policy" "config_logs" {
   bucket = aws_s3_bucket.config_logs.id
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "AWSConfigBucketPermissionsCheck"
-        Effect    = "Allow"
-        Principal = { Service = "config.amazonaws.com" }
-        Action    = "s3:GetBucketAcl"
+        Sid       = "AWSConfigBucketPermissionsCheck",
+        Effect    = "Allow",
+        Principal = { Service = "config.amazonaws.com" },
+        Action    = "s3:GetBucketAcl",
         Resource  = "arn:${data.aws_partition.current.partition}:s3:::${aws_s3_bucket.config_logs.bucket}"
       },
       {
-        Sid       = "AWSConfigBucketDelivery"
-        Effect    = "Allow"
-        Principal = { Service = "config.amazonaws.com" }
-        Action    = "s3:PutObject"
-        Resource  = "arn:${data.aws_partition.current.partition}:s3:::${aws_s3_bucket.config_logs.bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/Config/*"
+        Sid       = "AWSConfigBucketDelivery",
+        Effect    = "Allow",
+        Principal = { Service = "config.amazonaws.com" },
+        Action    = "s3:PutObject",
+        Resource  = "arn:${data.aws_partition.current.partition}:s3:::${aws_s3_bucket.config_logs.bucket}/AWSLogs/${data.aws_caller_identity.current.account_id}/Config/*",
         Condition = {
           StringEquals = {
             "s3:x-amz-acl" = "bucket-owner-full-control"
@@ -82,11 +82,10 @@ resource "aws_config_configuration_recorder" "this" {
   }
 }
 
-# Create the Delivery Channel with the required key prefix
+# Delivery Channel without s3_key_prefix so Config uses AWSLogs/<account>/Config/
 resource "aws_config_delivery_channel" "this" {
   name           = "default"
   s3_bucket_name = aws_s3_bucket.config_logs.bucket
-  s3_key_prefix  = "AWSLogs/${data.aws_caller_identity.current.account_id}/Config"
   depends_on     = [aws_s3_bucket_policy.config_logs, aws_config_configuration_recorder.this]
 }
 
