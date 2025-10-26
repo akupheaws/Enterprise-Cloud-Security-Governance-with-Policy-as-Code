@@ -1,43 +1,78 @@
-name: Deploy with Policy-as-Code
+name: Secure Deployment with Policy-as-Code
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
 
+# Global environment variables for AWS authentication
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
 jobs:
-  test-and-deploy:
+
+  opa-tests:
+    # Validate OPA unit tests for Rego policy logic
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+      - name: Run OPA Unit Tests
+        run: opa test policies/
 
-    - name: Install Terraform
-      uses: hashicorp/setup-terraform@v3
+  terraform-plan:
+    # Generate Terraform plan json and upload artifact for scanning
+    runs-on: ubuntu-latest
+    needs: opa-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init and Plan
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform plan -out=tfplan
+          terraform show -json tfplan > tfplan.json
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan.json
+          path: terraform/tfplan.json
 
-    - name: Terraform Init & Plan
-      working-directory: terraform
-      run: |
-        terraform init
-        terraform plan -out=tfplan
-        terraform show -json tfplan > tfplan.json
+  policy-check:
+    # Validate Terraform infrastructure plan against OPA policies via Conftest
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan.json
+      - name: Install Conftest
+        run: |
+          wget https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz
+          tar xzf conftest_0.52.0_Linux_x86_64.tar.gz
+          sudo mv conftest /usr/local/bin/
+      - name: Run Conftest Policy Check
+        run: conftest test tfplan.json
 
-    - name: Install OPA & Conftest
-      run: |
-        curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
-        chmod +x opa
-        sudo mv opa /usr/local/bin/
-        wget https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz
-        tar xzf conftest_0.52.0_Linux_x86_64.tar.gz
-        sudo mv conftest /usr/local/bin/
-
-    - name: Run OPA Unit Tests
-      run: opa test policies/
-
-    - name: Validate Terraform Plan Against Rego Policies
-      run: conftest test terraform/tfplan.json
-
-    - name: Deploy
-      working-directory: terraform
-      run: terraform apply -auto-approve
+  terraform-apply:
+    # Deploy infrastructure only if previous jobs succeed and only on main branch push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: policy-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
