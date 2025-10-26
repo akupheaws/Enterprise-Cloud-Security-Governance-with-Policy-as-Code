@@ -1,6 +1,8 @@
 package policy.tags
 
-deny[msg] {
+# Deny if CostCenter tag is missing or empty
+deny[msg] if {
   input.resource.tags.CostCenter == ""
-  msg = sprintf("Resource %v missing CostCenter tag", [input.resource.name])
+} then {
+  msg := sprintf("Resource %v missing CostCenter tag", [input.resource.name])
 }
