@@ -1,6 +1,5 @@
 resource "aws_config_conformance_pack" "cis_conformance" {
-  name = "CIS-AWS-Foundations-Benchmark"
-
+  name          = "CIS-AWS-Foundations-Benchmark"
   template_body = <<EOF
 ---
 Resources:
@@ -44,4 +43,6 @@ Resources:
         Owner: "AWS"
         SourceIdentifier: "CLOUD_TRAIL_ENABLED"
 EOF
+
+  depends_on = [aws_config_configuration_recorder_status.this]
 }

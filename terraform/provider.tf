@@ -19,3 +19,24 @@ locals {
   # Governance-required tag for FinOps + ownership tracking
   cost_center = "SecurityOps"
 }
+
+# In terraform/main.tf or a providers file
+terraform {
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+}
+
+# In terraform/main.tf or a providers file
+terraform {
+  required_providers {
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.11"
+    }
+  }
+}
+
