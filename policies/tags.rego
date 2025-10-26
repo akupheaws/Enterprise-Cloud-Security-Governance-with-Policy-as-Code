@@ -1,12 +1,16 @@
 package policy.tags
 
-# Deny resources missing mandatory CostCenter tag
-deny[msg] {
+# deny is a set of strings with human-readable messages
+deny is set of string
+
+# Missing CostCenter tag
+deny contains msg if {
   not input.resource.tags.CostCenter
   msg := sprintf("Resource %v missing CostCenter tag", [input.resource.name])
 }
 
-deny[msg] {
+# Empty CostCenter tag
+deny contains msg if {
   input.resource.tags.CostCenter == ""
   msg := sprintf("Resource %v has an empty CostCenter tag", [input.resource.name])
 }
